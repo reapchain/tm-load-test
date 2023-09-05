@@ -164,6 +164,7 @@ tm-load-test -c 1 -T 10 -r 1000 -s 250 \
     --broadcast-tx-method async \
     --endpoints ws://tm-endpoint1.somewhere.com:26657/websocket,ws://tm-endpoint2.somewhere.com:26657/websocket \
     --stats-output /path/to/save/stats.csv
+    --tx-input /path/to/data/input_tx.csv
 
 # From the coordinator in coordinator/worker mode
 tm-load-test \
@@ -174,6 +175,7 @@ tm-load-test \
     --broadcast-tx-method async \
     --endpoints ws://tm-endpoint1.somewhere.com:26657/websocket,ws://tm-endpoint2.somewhere.com:26657/websocket \
     --stats-output /path/to/save/stats.csv
+    --tx-input /path/to/data/input_tx.csv
 ```
 
 The output CSV file has the following format at present:

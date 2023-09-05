@@ -7,7 +7,7 @@ import (
 const appLongDesc = `Load testing application for Tendermint with optional coordinator/worker mode.
 Generates large quantities of arbitrary transactions and submits those
 transactions to one or more Tendermint endpoints. By default, it assumes that
-you are running the kvstore ABCI application on your Tendermint network.
+you are running the simapp ABCI application on your Tendermint network.
 
 To run the application in a similar fashion to tm-bench (STANDALONE mode):
     tm-load-test -c 1 -T 10 -r 1000 -s 250 \
@@ -42,8 +42,8 @@ NOTES:
 func main() {
 	loadtest.Run(&loadtest.CLIConfig{
 		AppName:              "tm-load-test",
-		AppShortDesc:         "Load testing application for Tendermint kvstore",
+		AppShortDesc:         "Load testing application for Cosmos SDK simapp",
 		AppLongDesc:          appLongDesc,
-		DefaultClientFactory: "kvstore",
+		DefaultClientFactory: "reapapp",
 	})
 }

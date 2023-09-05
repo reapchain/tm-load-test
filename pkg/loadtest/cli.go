@@ -63,6 +63,7 @@ func buildCLI(cli *CLIConfig, logger logging.Logger) *cobra.Command {
 	rootCmd.PersistentFlags().IntVar(&cfg.MinConnectivity, "min-peer-connectivity", 0, "The minimum number of peers to which each peer must be connected before starting the load test")
 	rootCmd.PersistentFlags().StringVar(&cfg.StatsOutputFile, "stats-output", "", "Where to store aggregate statistics (in CSV format) for the load test")
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "Increase output logging verbosity to DEBUG level")
+	rootCmd.PersistentFlags().StringVar(&cfg.TxInputFile, "tx-input", "", "Where to read the tx file (in CSV format) for sending to Cosmos SDK")
 
 	var coordCfg CoordinatorConfig
 	coordCmd := &cobra.Command{
