@@ -18,12 +18,10 @@ type AggregateStats struct {
 
 func (s *AggregateStats) String() string {
 	return fmt.Sprintf(
-		"AggregateStats{TotalTimeSeconds: %.3f, TotalTxs: %d, TotalBytes: %d, AvgTxRate: %.6f, AvgDataRate: %.6f}",
+		"AggregateStats{TotalTimeSeconds: %.3f, TotalTxs: %d, TotalBytes: %d}",
 		s.TotalTimeSeconds,
 		s.TotalTxs,
 		s.TotalBytes,
-		s.AvgTxRate,
-		s.AvgDataRate,
 	)
 }
 
@@ -52,8 +50,6 @@ func writeAggregateStats(filename string, stats AggregateStats) error {
 		{"total_time", fmt.Sprintf("%.3f", stats.TotalTimeSeconds), "seconds"},
 		{"total_txs", fmt.Sprintf("%d", stats.TotalTxs), "count"},
 		{"total_bytes", fmt.Sprintf("%d", stats.TotalBytes), "bytes"},
-		{"avg_tx_rate", fmt.Sprintf("%.6f", stats.AvgTxRate), "transactions per second"},
-		{"avg_data_rate", fmt.Sprintf("%.6f", stats.AvgDataRate), "bytes per second"},
 	}
 	return w.WriteAll(records)
 }

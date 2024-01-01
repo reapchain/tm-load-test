@@ -126,9 +126,9 @@ func (g *TransactorGroup) Wait() error {
 
 func (g *TransactorGroup) WriteAggregateStats(filename string) error {
 	stats := AggregateStats{
-		TotalTxs:         g.totalTxs(),
+		TotalTxs:         g.totalTxs() / len(g.transactors),
 		TotalTimeSeconds: time.Since(g.getStartTime()).Seconds(),
-		TotalBytes:       g.totalBytes(),
+		TotalBytes:       g.totalBytes() / int64(len(g.transactors)),
 	}
 	return writeAggregateStats(filename, stats)
 }

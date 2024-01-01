@@ -13,9 +13,12 @@ import (
 )
 
 const (
-	connSendTimeout = 10 * time.Second
+	// connSendTimeout = 10 * time.Second
 	// see https://github.com/tendermint/tendermint/blob/v0.32.x/rpc/lib/server/handlers.go
-	connPingPeriod = (30 * 9 / 10) * time.Second
+	// connPingPeriod = (30 * 9 / 10) * time.Second
+
+	connSendTimeout = 10 * time.Second
+	connPingPeriod  = (30 * 9 / 10) * time.Second
 
 	jsonRPCID = -1
 
@@ -35,11 +38,15 @@ type Transactor struct {
 	wg                sync.WaitGroup
 
 	// Rudimentary statistics
-	statsMtx  sync.RWMutex
-	startTime time.Time // When did the transaction sending start?
-	txCount   int       // How many transactions have been sent.
-	txBytes   int64     // How many transaction bytes have been sent, cumulatively.
-	txRate    float64   // The number of transactions sent, per second.
+	statsMtx   sync.RWMutex
+	receiveMtx sync.RWMutex
+	startTime  time.Time // When did the transaction sending start?
+	txCount    int       // How many transactions have been sent.
+	txBytes    int64     // How many transaction bytes have been sent, cumulatively.
+	txRate     float64   // The number of transactions sent, per second.
+	countReal  int       // The number of transactions received, per second.
+	sentTPS    float64   // The number of transactions sent, per second.
+	receiveTPS float64   // The number of transactions received, per second.
 
 	progressCallbackMtx      sync.RWMutex
 	progressCallbackID       int                                      // A unique identifier for this transactor when calling the progress callback.
@@ -144,11 +151,24 @@ func (t *Transactor) GetTxRate() float64 {
 	return t.txRate
 }
 
+// GetTxRate returns the average number of transactions per second sent by
+// this transactor over the duration of its operation.
+func (t *Transactor) GetRealTx() int {
+	t.receiveMtx.RLock()
+	defer t.receiveMtx.RUnlock()
+	return t.countReal
+}
+
 func (t *Transactor) receiveLoop() {
 	defer t.wg.Done()
 	for {
-		// right now we don't care about what we read back from the RPC endpoint
-		_, _, err := t.conn.ReadMessage()
+		res, _, err := t.conn.ReadMessage()
+		if res != 0 {
+			t.receiveMtx.RLock()
+			t.countReal++
+			t.receiveMtx.RUnlock()
+		}
+
 		if err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
 				t.logger.Error("Failed to read response on connection", "err", err)
@@ -184,8 +204,15 @@ func (t *Transactor) sendLoop() {
 
 	for {
 		if t.config.Count > 0 && t.GetTxCount() >= t.config.Count {
-			t.logger.Info("Maximum transaction limit reached", "count", t.GetTxCount())
-			t.setStop(nil)
+			if t.sentTPS == 0 {
+				t.sentTPS = float64(t.GetTxCount()) / time.Since(t.startTime).Seconds()
+				t.logger.Info("Maximum transaction limit reached", "totalSent", t.config.Count, "sentTPS", t.sentTPS)
+			}
+
+			if t.GetRealTx() >= t.config.Count {
+				t.receiveTPS = float64(t.config.Count) / time.Since(t.startTime).Seconds()
+				t.setStop(nil)
+			}
 		}
 		select {
 		case <-sendTicker.C:
@@ -244,6 +271,14 @@ func (t *Transactor) setStop(err error) {
 		t.stopErr = err
 	}
 	t.stopMtx.Unlock()
+
+	if t.sentTPS == 0 {
+		t.sentTPS = float64(t.GetTxCount()) / time.Since(t.startTime).Seconds()
+	}
+	if t.receiveTPS == 0 {
+		t.receiveTPS = float64(t.GetRealTx()) / time.Since(t.startTime).Seconds()
+	}
+	t.logger.Info("Stopping transactor", "sentTPS", t.sentTPS, "receiveTPS", t.receiveTPS)
 }
 
 func (t *Transactor) sendTransactions() error {
@@ -260,7 +295,12 @@ func (t *Transactor) sendTransactions() error {
 	var sent int
 	var sentBytes int64
 	defer func() { t.trackSentTxs(sent, sentBytes) }()
-	t.logger.Info("Sending batch of transactions", "toSend", toSend)
+	if t.sentTPS == 0 {
+		t.logger.Info("Sending batch of transactions", "toSend", toSend, "totalSend", totalSent)
+	} else {
+		t.logger.Info("Waiting for receive transactions")
+	}
+
 	batchStartTime := time.Now()
 	for ; sent < toSend; sent++ {
 		tx, err := t.client.GenerateTx()
@@ -307,9 +347,7 @@ func (t *Transactor) sendPing() error {
 
 func (t *Transactor) reportProgress() {
 	txCount := t.GetTxCount()
-	txRate := t.GetTxRate()
 	txBytes := t.GetTxBytes()
-	t.logger.Debug("Statistics", "txCount", txCount, "txRate", fmt.Sprintf("%.3f txs/sec", txRate))
 
 	t.progressCallbackMtx.RLock()
 	defer t.progressCallbackMtx.RUnlock()
